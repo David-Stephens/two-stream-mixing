@@ -12,7 +12,11 @@ class TwoStreams(object):
     all_sims = dict(zip(defaults.Params.testcases, [testcases.Gaussian, testcases.BetaTest,
                                                     testcases.GammaTest]))
 
-    def __init__(self, root, testcase, movies):
+    # the actual testcases have the limit of 8 characters (due to fortran....) and so for a cleaner
+    # presentation we use the testcase_search strings as a front to those actual testcases
+    testcase_search = dict(zip(['GaussianTest', 'BetaTest', 'GammaTest'], defaults.Params.testcases))
+
+    def __init__(self, root, testcase, plots, movies):
         """
         Constructor
 
@@ -25,6 +29,9 @@ class TwoStreams(object):
         testcase : str
             The testcase chosen by the user
 
+        plots : bool
+            A boolean as to whether or not we make plots by default
+
         movies : bool
             A boolean as to whether or not we make movies by default
         """
@@ -33,19 +40,29 @@ class TwoStreams(object):
         self.root = root
         self.params = defaults.Params(self.root)
 
-        # are we doing movies?
+        # are we doing movies and/or plots?
+        self.plots = plots
         self.movies = movies
 
         # check if the parameters file exists in "home"
         if not os.path.isfile(self.params.paramfile):
             self.params.writeTestcases()
 
-        if testcase not in defaults.Params.testcases:
-            print('Error: The {:s} testcase is not in the parameters file {:s}'
-                .format(self.params.paramfile))
+        # ok, our fortran string testcase is instead
+        self.testcase = self.testcase_search[testcase]
 
-        # ok, our testcase is
-        self.testcase = testcase
+    def finishedTestcase(self):
+        """
+        Print text to notify user that the testcase was finished correctly
+        """
+
+        print('We have now finished the testcase, {:s}'.format(self.testcase))
+
+        if self.movies:
+            print('You can find the png and movie output of the simulation within ./{0:s}/png and ./{0:s}'
+                  .format(self.testcase))
+        else:
+            print('You can find the png output of the simulation within ./{:s}/png'.format(self.testcase))
 
     def run_simulation(self):
         """
@@ -54,12 +71,13 @@ class TwoStreams(object):
 
         # create appropriate object
         simulation = self.all_sims[self.testcase](self.testcase, self.params.paramfile, self.root,
-                                            self.movies)
+                                                  self.plots, self.movies)
 
         simulation.run_simulation()
+        self.finishedTestcase()
 
 
-def clean(root):
+def cleanRuns(root):
     """
     Clean the repository directory
 
@@ -81,11 +99,15 @@ if __name__ == "__main__":
 
     # The arguments to the script
     shparams = argparse.ArgumentParser()
-    shparams.add_argument("--testcase", '-t', type=str, help="The testcase to run",
-                          choices=defaults.Params.testcases)
-    shparams.add_argument('--movie', '-m', help="Do we create movies from the plotted outputs?",
+    shparams.add_argument("-a", '--allTests', help="Run all testcases",
                           action="store_true")
-    shparams.add_argument('--clean', '-c', help="Clean the directory of all runfiles",
+    shparams.add_argument("-t", "--testcase", type=str, help="Testcase(s) to run",
+                          choices=TwoStreams.testcase_search.keys(), nargs='+')
+    shparams.add_argument("-np", '--noPlots', help="Do not create any plots",
+                          action="store_false")
+    shparams.add_argument('-m', '--movies', help="Do we create movies from the plotted outputs?",
+                          action="store_true")
+    shparams.add_argument('-c', '--clean', help="Clean the directory of all runfiles",
                           action="store_true")
 
     # parse the args
@@ -94,19 +116,33 @@ if __name__ == "__main__":
     # where did we run this?
     root = os.path.dirname(os.path.realpath(__file__))
 
-    if args.clean:
-        clean(root)
+    allTests = args.allTests
+    someTests = args.testcase
+    plots = args.noPlots
+    movies = args.movies
+    clean = args.clean
+
+    # we can't make movies if we aren't making plots
+    if not plots:
+        movies = False
+
+    # are we cleaning the directory?
+    if clean:
+        cleanRuns(root)
         print('All of the run directories in this repository have been removed')
 
     else:
-        # create the twostream object
-        testing = TwoStreams(root, args.testcase, args.movie)
-        testing.run_simulation()
 
-        print('We have now finished the testcase, {:s}'.format(args.testcase))
-
-        if args.movie:
-            print('You can find the png and movie output of the simulation within ./{:s}'
-                  .format(args.testcase))
+        # If we run all...
+        if allTests:
+            testsToRun = list(TwoStreams.testcase_search.keys())
         else:
-            print('You can find the png output of the simulation within ./{:s}'.format(args.testcase))
+            testsToRun = someTests
+
+        # loop through the testcases we need to run
+        for testcase in testsToRun:
+
+            # create the twostream object
+            testing = TwoStreams(root, testcase, plots, movies)
+            testing.run_simulation()
+

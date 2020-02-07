@@ -28,7 +28,19 @@ the algorithm is mentioned in detail.
     `python two-stream-tests.py -h`
   
 ## Test Cases ##
-### 1. Advecting Gaussians ###
+
+The entire suite of test cases can be run by simply running the command
+
+`python two-stream-tests.py -a`
+
+Png's of the output text files of all tests are made by default. This option can be turned off with the `-np` flag
+
+Movies of the output matplotlib plots, if there is no `-np` flag, are not made by default. You need to
+include the `-m` or `--movie` flag like so
+
+`python two-stream-tests.py -a -m`
+
+### 1. GaussianTest ###
 
 The purpose of these tests is to show the advection algorithms convergence as a
 function of the grid size. This test case has a constant flux,
@@ -39,14 +51,13 @@ no additional horizontal mixing,
 ![gamma](https://latex.codecogs.com/svg.latex?%5Cgamma), in this test case. This
 simulation can be run simply with the command
 
-`python two-stream-tests.py gaussian`
+`python two-stream-tests.py -t GaussianTest`
 
-Movies of the output matplotlib plots are not made by default. You need to
-include the `-m` or `--movie` flag like so
+The convergence results of the `GaussianTest` are shown in the figure below
 
-`python two-stream-tests.py gaussian -m`
+![image]('./reference-output/gaussian/L2-norm.png')
 
-### 2. Variable Velocity Field, ![beta](https://latex.codecogs.com/svg.latex?%5Cbeta)  ###
+### 2. BetaTest, ![beta](https://latex.codecogs.com/svg.latex?%5Cbeta)  ###
 
 The purpose of this test is to showcase the influence of the
 ![beta](https://latex.codecogs.com/svg.latex?%5Cbeta) coefficient, the enforced
@@ -54,9 +65,9 @@ horizontal mixing, on the advection of a gaussian. Here there is a quadratic
 velocity field that is shown in the output figures. This simulation can be run
 simply with the command
 
-`python two-stream-tests.py betaTest`
+`python two-stream-tests.py -t BetaTest`
 
-### 3. Additional Horizontal Mixing, ![gamma](https://latex.codecogs.com/svg.latex?%5Cgamma) ###
+### 3. GammaTest, ![gamma](https://latex.codecogs.com/svg.latex?%5Cgamma) ###
 
 The purpose of this test is to show the influence of the
 ![gamma](https://latex.codecogs.com/svg.latex?%5Cgamma) coefficient on the
@@ -64,12 +75,12 @@ advection of a gaussian as well as the inclusion of
 ![beta](https://latex.codecogs.com/svg.latex?%5Cbeta). The
 ![gamma](https://latex.codecogs.com/svg.latex?%5Cgamma) coefficient is constant
 throughout the entire simulation and its value can be seen in the
-`two-stream.params` parameters file. That file contains all of the
+`two-stream-tests.config` parameters file. That file contains all of the
 specifications required for the test cases and they can be changed to create new
 test cases. Checkout the python scripts under `./utils` for more information. This
 simulation can be run simply with the command
 
-`python two-stream-tests.py gammaTst`
+`python two-stream-tests.py -t gammaTest`
 
 <!-- ## Applying to Post-Processing Code ## -->
 

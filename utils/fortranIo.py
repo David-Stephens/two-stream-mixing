@@ -200,9 +200,9 @@ class FFiles(object):
             subprocess.run(['./{:s}'.format(binaryFFile)],
                            stdout=subprocess.PIPE, check=True)
 
-        except subprocess.CalledProcessError as error:
+        except:
             print('The running of the compiled file, {:s}, failed'.format(compileFFile))
-            raise error
+            raise 
 
         # Success! cd back to root
         print('The compiled fortran code succeeded in its run!')
@@ -236,8 +236,8 @@ class FFiles(object):
             subprocess.run(['gfortran', compileFFile, "-o", binaryFFile], stdout=subprocess.PIPE,
                            check=True)
 
-        except subprocess.CalledProcessError as error:
+        except:
             print('The compilation of the file, {:s}, failed'.format(compileFFile))
-            raise error
+            raise
 
         return binaryFFile

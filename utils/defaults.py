@@ -61,20 +61,23 @@ class Params(object):
         """
 
         # the list of keys for the dictionary
-        gausskeys = ['dm', 'nconv', 'sigma_m', 'mmax']
+        gausskeys = ['dm', 'nconv', 'sigma_m', 'mmax', 'v']
 
         # create the items
         nconv = 2
 
         # I will resolve gaussian to 5sigma in all cases. sigma_m gives the size of gaussian
-        sigma_m = 1
+        sigma_m = 2.5
         mmax = 20.
 
-        # configparser converts everything to string. make csv for easy list making later
-        dms = list(map(lambda x: 0.1*np.power(5.,x), -1*np.arange(0,3)))
-        dms = ','.join(map('{:.5E}'.format, dms))
+        # what is my velocity
+        v = 1.
 
-        self.allTests[testcase] = dict(zip(gausskeys, [dms, nconv, sigma_m, mmax]))
+        # configparser converts everything to string. make csv for easy list making later
+        dms = list(map(lambda x: 0.078125*np.power(2.,x), -1*np.arange(0, 5)))
+        dms = ','.join(map('{:.14E}'.format, dms))
+
+        self.allTests[testcase] = dict(zip(gausskeys, [dms, nconv, sigma_m, mmax, v]))
 
     def betaTestParams(self, testcase):
         """
@@ -95,15 +98,15 @@ class Params(object):
 
         # I will resolve gaussian to 5sigma in all cases. sigma_m gives the size of gaussian
         sigma_m = 1
-        mmax = 50.
+        mmax = 40.
 
         # dm will be a sensible resolution so it doesn't take forever
-        dm = '{:.5E}'.format(4e-2)
+        dm = '{:.10E}'.format(0.078125*np.power(2.,-3.))
 
         # the maximum velocity and where the quadratic fit will start and end (mass coord)
         vmax = 4.
         mstart = 10.
-        mstop = 40.
+        mstop = 30.
 
         self.allTests[testcase] = dict(zip(betaTestkeys, [dm, nconv, sigma_m, mmax, vmax, mstart,
                                                           mstop]))
@@ -127,15 +130,15 @@ class Params(object):
 
         # I will resolve gaussian to 5sigma in all cases. sigma_m gives the size of gaussian
         sigma_m = 1
-        mmax = 50.
+        mmax = 40.
 
         # dm will be a sensible resolution so it doesn't take forever
-        dm = '{:.5E}'.format(4e-2)
+        dm = '{:.10E}'.format(0.078125*np.power(2.,-3.))
 
         # the maximum velocity and where the quadratic fit will start and end (mass coord)
         vmax = 4.
         mstart = 10.
-        mstop = 40.
+        mstop = 30.
 
         # Gamma is a constant value of 0.5 the dm
         gamma = '{:.5E}'.format(0.05 * float(dm))

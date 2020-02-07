@@ -15,7 +15,7 @@ class Testcase(object):
     advFile = 'two-stream-mixing.f'
     programFile = 'program.f'
 
-    def __init__(self, testcase, paramfile, root, movies):
+    def __init__(self, testcase, paramfile, root, plots, movies):
         """
         Construct the testcase base parameters
 
@@ -31,6 +31,9 @@ class Testcase(object):
         root : str
             The absolute path to where the two-stream-tests.py was called from
 
+        plots : bool
+            A boolean as to whether or not we make plots by default
+
         movies : bool
             A boolean as to whether or not we will create movies with ffmpeg
         """
@@ -38,21 +41,22 @@ class Testcase(object):
         # A bunch of strings/bools to hold
         self.mytestcase = testcase
         self.root = root
+        self.plots = plots
         self.movies = movies
         self.rundir = os.path.join(self.root, self.mytestcase)
         self.runFile = os.path.join(self.rundir, self.mytestcase + '.f')
 
         # read in the parameters file and grab appropriate parameters
-        self.configs = configparser.ConfigParser()
-        self.configs.read(paramfile)
-        self.testParams = self.configs[self.mytestcase]
+        configs = configparser.ConfigParser()
+        configs.read(paramfile)
+        self.testParams = configs[self.mytestcase]
 
         # grab the defaults
-        self.courant = self.configs['DEFAULT'].getfloat('c')
-        self.stdRatio = self.configs['DEFAULT'].getfloat('stdRatio')
-        self.stdSize = self.configs['DEFAULT'].getfloat('stdSize')
-        self.dpi = self.configs['DEFAULT'].getfloat('dpi')
-        self.framerate = self.configs['DEFAULT'].getint('framerate')
+        self.courant = configs['DEFAULT'].getfloat('c')
+        self.stdRatio = configs['DEFAULT'].getfloat('stdRatio')
+        self.stdSize = configs['DEFAULT'].getfloat('stdSize')
+        self.dpi = configs['DEFAULT'].getfloat('dpi')
+        self.framerate = configs['DEFAULT'].getint('framerate')
 
         # Now we can create the run directory and the default fortran file
         if os.path.isdir(self.rundir):
@@ -150,8 +154,8 @@ class Testcase(object):
                 .format(self.mytestcase, self.runConsts['nmax']))
 
         # Everything is set, now we create the shell and central files
-        fortran = fortranIo.FFiles(self.root)
-        fortran.writeFFiles(self.runFile, self.runVars, self.runConsts)
+        self.fortran = fortranIo.FFiles(self.root)
+        self.fortran.writeFFiles(self.runFile, self.runVars, self.runConsts)
 
         # make a txt directory for the output
         os.mkdir(os.path.join(self.rundir, 'output'))
@@ -161,7 +165,7 @@ class Testcase(object):
 
         # now we compile and run the fortran code
         timeit = time.time()
-        fortran.runFFile(self.runFile)
+        self.fortran.runFFile(self.runFile)
 
         print('That took {:.2f} minutes'.format((time.time() - timeit)/60.))
         print('')
@@ -172,12 +176,13 @@ class Testcase(object):
             if afile.endswith('.txt'):
                 txtfiles.append(os.path.join(self.rundir, afile))
 
-        print('Believe it or not, plotting takes time. We need to plot {:d} figures'.format(len(txtfiles)))
-        timeit = time.time()
-        self.create_plots(txtfiles)
+        if self.plots:
+            print('Believe it or not, plotting takes time. We need to plot {:d} figures'.format(len(txtfiles)))
+            timeit = time.time()
+            self.create_plots(txtfiles)
 
-        print('That took {:.2f} minutes'.format((time.time() - timeit)/60.))
-        print('')
+            print('That took {:.2f} minutes'.format((time.time() - timeit)/60.))
+            print('')
 
         # find all of the '*.png' files
         pngfiles = []
@@ -187,7 +192,9 @@ class Testcase(object):
         # move all txt and png files to the folders
         for atxt, apng in zip(txtfiles, pngfiles):
             shutil.move(os.path.join(self.rundir, atxt), os.path.join(self.rundir, 'output'))
-            shutil.move(os.path.join(self.rundir, apng), os.path.join(self.rundir, 'png'))
+
+            if self.plots:
+                shutil.move(os.path.join(self.rundir, apng), os.path.join(self.rundir, 'png'))
 
         if self.movies:
             print('Creating the movies out of the png files')
@@ -209,7 +216,7 @@ class Testcase(object):
                             '{:s}.mp4'.format(self.mytestcase)])
         except subprocess.CalledProcessError as error:
             print('FFmpeg was unable to create a movie')
-            raise error
+            raise
 
         # cd back to root
         os.chdir(self.root)
@@ -230,18 +237,17 @@ class Testcase(object):
         """
 
         # read in every file, create arrays, send information needed to self._plot
-        myFFiles = fortranIo.FFiles(self.root)
         ifig = 0
 
         for output in txtfiles:
 
             # get quantities and the output number
-            Xup, notXup, Xdown, notXdown = myFFiles.readFFile(output)
+            Xup, notXup, Xdown, notXdown = self.fortran.readFFile(output)
             basename = os.path.basename(output)
             num = int((basename.split('.')[0]).split('-')[-1])
 
             # so I have all of the X's from output file.
-            self._plot(Xup, Xdown, ifig, num)
+            self._plot(Xup, Xdown, ifig, num, len(txtfiles))
             ifig += 1
 
     ##--------------------+
@@ -365,7 +371,7 @@ class Testcase(object):
         # specified by a child class
         return None
 
-    def _plot(self, Xup, Xdown, ifig, num):
+    def _plot(self, Xup, Xdown, ifig, num, numfiles):
         """
         Make and save a single plot for the testcase
 
@@ -383,6 +389,9 @@ class Testcase(object):
 
         num : int
             The output txt file number that is to be plotted
+
+        numfiles : list
+            The number of files that are being plotted
         """
 
 class Gaussian(Testcase):
@@ -392,10 +401,10 @@ class Gaussian(Testcase):
     formed at the bottom of the upstream.
     """
 
-    def __init__(self, testcase, paramfile, root, movies):
+    def __init__(self, testcase, paramfile, root, plots, movies):
 
         # Run parent initialization
-        super().__init__(testcase, paramfile, root, movies)
+        super().__init__(testcase, paramfile, root, plots, movies)
 
     # run_simulation
     def run_simulation(self):
@@ -406,6 +415,11 @@ class Gaussian(Testcase):
         folder_str = os.path.join(self.rundir, 'dm_{:.3f}')
         dm_floats = list(map(float, self.testParams.get('dm').split(',')))
         self.folders = list(map(folder_str.format, dm_floats))
+
+        # store the inf norm (max abs error)
+        errors_inf = []
+        errors_l2 = []
+        errors_l2_normalized = []
 
         # using multiple dm's, we just do our run_simulation multiple times by only updating what
         # self.rundir, self.runFile are each time
@@ -427,7 +441,79 @@ class Gaussian(Testcase):
             # now we can call super run_simulation
             super().run_simulation()
 
-    def _plot(self, Xup, Xdown, ifig, num):
+            # find all of the '*.txt' files
+            txtfiles = []
+            for afile in os.listdir(os.path.join(self.rundir, 'output')):
+                if afile.endswith('.txt'):
+                    txtfiles.append(os.path.join(self.rundir, afile))
+            numfile = len(txtfiles) - 1
+
+            # only take the Xup mass fraction array, we didn't advect far
+            Xup = self.fortran.readFFile(
+                    os.path.join(self.rundir, 'output', self.mytestcase+'-{:06d}.txt'.format(numfile)))[0]
+
+            # now we know what the gaussian SHOULD be, it is just shifted by 1 sigma in mass coord
+            shifted_gauss = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'), 10., limit=False)
+
+            # genfromtxt gives nans for real small numbers. Set these to zero
+            Xup = np.nan_to_num(Xup)
+
+            # different norms for the error
+            diff = shifted_gauss - Xup
+            errors_inf.append(np.max(np.abs(diff)))
+            errors_l2.append(np.sqrt(np.sum(diff**2)))
+            errors_l2_normalized.append(np.sqrt((1. / float(len(self.mass_central))) * np.sum(diff**2)))
+
+        # using our l2_norms, plot_the simError
+        self.plot_simError(errors_l2_normalized, dm_floats)
+        
+
+    def plot_simError(self, error, dm_floats):
+        """
+        Plot the error convergence for the simulations
+
+        Parameters
+        ----------
+        error : list
+            The errors for the particular dm_floats
+
+        dm_floats : list
+            List of the simulation dms used
+        """
+
+        # create figure
+        ifig = 100000
+        fig = plt.figure(ifig, figsize=(self.stdRatio*self.stdSize, self.stdSize), dpi=self.dpi)
+        ax = fig.add_subplot(111)
+
+        # plot the l2_norm vs dm_floats in log-log space. Add a ~delta_dm^2
+        ax.scatter(dm_floats, error, color='k', marker='x', label='2nd-Order Solver With Minmod Limiter')
+
+        dm_line = np.linspace(min(dm_floats), max(dm_floats), 1000.)
+        second_order = 0.9*dm_line**2
+        first_order = (0.9*dm_line[-1])*dm_line
+        ax.plot(dm_line, second_order, color='k', ls='--', label=r'$\mathcal{0}(\delta m^{2})$')
+        ax.plot(dm_line, first_order, color='r', ls='--', label=r'$\mathcal{0}(\delta m)$')
+
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+
+        # Plot details
+        ax.set_xlabel('dm')
+        ax.set_ylabel('L2 norm of errors')
+        ax.set_ylim([1e-2,1e-5])
+        ax.set_xlim([1e-3, 1e-1])
+        ax.set_title('Convergence of Gaussian Advection')
+        ax.legend()
+
+        # invert both axes
+        ax.invert_yaxis()
+        ax.invert_xaxis()
+
+        fig.savefig(os.path.join(self.root, self.mytestcase, 'L2-norm.png'), dpi=self.dpi)
+        plt.close()
+        
+    def _plot(self, Xup, Xdown, ifig, num, numfiles):
 
         # create figure
         fig = plt.figure(ifig, figsize=(self.stdRatio*self.stdSize, self.stdSize), dpi=self.dpi)
@@ -436,6 +522,11 @@ class Gaussian(Testcase):
         # plot Xup and Xdown as a function of self.mass_central
         ax.plot(self.mass_central, Xup, label='Upstream')
         ax.plot(self.mass_central, Xdown, label='Downstream')
+
+        # if on last number
+        if num == numfiles - 1:
+            og_gauss = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'), 10., limit=False)
+            ax.plot(self.mass_central, og_gauss, color='k', ls='--')
 
         # Plot details
         ax.set_xlim([self.mass_central.min(), self.mass_central.max()])
@@ -467,7 +558,7 @@ class Gaussian(Testcase):
 
     def sim_v(self):
         
-        return np.ones(self.mass_shell.shape)
+        return np.ones(self.mass_shell.shape) * self.testParams.getfloat('v')
 
     def sim_rho(self):
 
@@ -479,10 +570,10 @@ class Gaussian(Testcase):
 
     def sim_X(self):
 
-        # 5 sigma is the cutoff, this is where the mean is located
-        # note, m is the central mass coordinate, where X is defined
-        Xup = gaussian(self.mass_central, self.testParams.getfloat('sigma_m'), 5., 5.)
-        Xdown = np.zeros(self.mass_central.shape)
+        Xup = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'),
+                       10., limit=False)
+        Xdown = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'),
+                         10., limit=False)
 
         return Xup, Xdown
 
@@ -492,8 +583,8 @@ class Gaussian(Testcase):
 
     def dt_max(self):
 
-        # 2 * pi * r^2 * rho * v is a flux of 1 everywhere in this testcase
-        return self.sim_dm() * self.courant / (1.)
+        # 2 * pi * r^2 * rho is a flux of 1 everywhere in this testcase
+        return self.sim_dm() * self.courant / (1. * np.mean(self.sim_v()))
 
     def save_every(self):
         
@@ -507,10 +598,10 @@ class BetaTest(Testcase):
     upstream.
     """
 
-    def __init__(self, testcase, paramfile, root, movies):
+    def __init__(self, testcase, paramfile, root, plots, movies):
 
         # call super init
-        super().__init__(testcase, paramfile, root, movies)
+        super().__init__(testcase, paramfile, root, plots, movies)
 
     ##--------------------+
     ## Overridden methods
@@ -550,7 +641,8 @@ class BetaTest(Testcase):
 
         # 5 sigma is the cutoff, this is where the mean is located
         # note, m is the central mass coordinate, where X is defined
-        Xup = gaussian(self.mass_central, self.testParams.getfloat('sigma_m'), 5., 5.)
+        Xup = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'), 5.,
+                       limit=True, extent=5.)
         Xdown = np.zeros(self.mass_central.shape)
 
         return Xup, Xdown
@@ -572,7 +664,7 @@ class BetaTest(Testcase):
         # This assumes v=1 everywhere which is not the case here but is good enough
         return int(np.round(0.4 / (self.courant * self.sim_dm())))
     
-    def _plot(self, Xup, Xdown, ifig, num):
+    def _plot(self, Xup, Xdown, ifig, num, numfiles):
         """
         Make a single plot
         """
@@ -622,10 +714,10 @@ class GammaTest(Testcase):
     upstream. 
     """
 
-    def __init__(self, testcase, paramfile, root, movies):
+    def __init__(self, testcase, paramfile, root, plots, movies):
 
         # call super init!
-        super().__init__(testcase, paramfile, root, movies)
+        super().__init__(testcase, paramfile, root, plots, movies)
 
     ##--------------------+
     ## Overridden methods
@@ -665,7 +757,8 @@ class GammaTest(Testcase):
 
         # 5 sigma is the cutoff, this is where the mean is located
         # note, m is the central mass coordinate, where X is defined
-        Xup = gaussian(self.mass_central, self.testParams.getfloat('sigma_m'), 5., 5.)
+        Xup = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'), 5.,
+                       limit=True, extent=5.)
         Xdown = np.zeros(self.mass_central.shape)
 
         return Xup, Xdown
@@ -690,7 +783,7 @@ class GammaTest(Testcase):
         # This assumes v=1 everywhere which is not the case here but is good enough
         return int(np.round(0.4 / (self.courant * self.sim_dm())))
 
-    def _plot(self, Xup, Xdown, ifig, num):
+    def _plot(self, Xup, Xdown, ifig, num, numfiles):
 
         # create figure
         fig = plt.figure(ifig, figsize=(self.stdRatio*self.stdSize, self.stdSize), dpi=self.dpi)

@@ -1,24 +1,30 @@
 import numpy as np
 
 # Generic functions used throughout
-def gaussian(m, sigma, offset=5., extent=5.):
+def gaussian(mc, m_shell, sigma, offset=5., limit=True, extent=5.):
     """
-    Create a gaussian distribution of the mass fraction of species X in the mass coordinates given
+    Create a cell averaged gaussian distribution of the mass fraction of species X in the mass coordinates given
 
     Parameters
     ----------
 
-    m : np.ndarray
-        The mass coordinates to determine
+    mc : np.ndarray
+        The mass coordinates of the center of the cell
+
+    m_shell : np.ndarray
+        The mass coordinates at the interfaces of the cell (shell)
 
     sigma : float
         The sigma of the gaussian distribution.
 
     offset : float
-        The offset, in a multiple of sigma,  where the mass coordinate of the mean is located
+        The offset where the mass coordinate of the mean is located
+
+    limit : bool
+        Are we going to artificially limit the gaussian for clarity in images?
 
     extent : float
-        The extent in a multiple of sigma to which the gaussian is resolved to
+        The extent in a multiple of sigma to which the gaussian is resolved to when limited
 
     Returns
     -------
@@ -26,11 +32,26 @@ def gaussian(m, sigma, offset=5., extent=5.):
         The mass fraction of the initialized X species with a gaussian model
     """
 
-    gauss = np.exp(-0.5*np.power(((m - offset*sigma)/sigma),2.0))
+    # Take an average based on the borders of the gaussian
+    gauss = np.zeros(len(mc))
 
-    # note, argmin turns the first occurence, i.e one below where I want
-    sigma5_index = np.argmin(abs(offset*sigma + extent*sigma - m)) + 1
-    gauss[sigma5_index:] = 0.
+    ml = m_shell[0:-1]
+    mr = m_shell[1:]
+    
+    gaussl = np.exp(-0.5*np.power(((ml - offset)/sigma),2.0))
+    gaussr = np.exp(-0.5*np.power(((mr - offset)/sigma),2.0))
+    gaussc = np.exp(-0.5*np.power(((mc - offset)/sigma),2.0))
+
+    gauss = 1/6.0 * (gaussl + 4*gaussc + gaussr)
+
+    # Make it zero above and below the 5 sigma limits
+    if limit:
+        sigma5_uindex = np.argmin(abs(offset + extent*sigma - mc)) + 1
+        gauss[sigma5_uindex:] = 0.
+
+        sigma5_dindex = np.argmin(abs(offset - extent*sigma - mc))
+        if sigma5_dindex != 0:
+            gauss[0:sigma5_dindex] = 0.
 
     return gauss
 
