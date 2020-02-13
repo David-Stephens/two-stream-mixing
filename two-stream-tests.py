@@ -2,6 +2,7 @@ from utils import defaults, testcases
 import shutil
 import argparse
 import os
+import collections
 
 class TwoStreams(object):
     """
@@ -13,8 +14,10 @@ class TwoStreams(object):
                                                     testcases.GammaTest]))
 
     # the actual testcases have the limit of 8 characters (due to fortran....) and so for a cleaner
-    # presentation we use the testcase_search strings as a front to those actual testcases
-    testcase_search = dict(zip(['GaussianTest', 'BetaTest', 'GammaTest'], defaults.Params.testcases))
+    # presentation we use the testcase_search strings as a front to those actual testcases. Lets
+    # make this an ordered dictionary
+    testcase_search = collections.OrderedDict(zip(['GaussianTest', 'BetaTest', 'GammaTest'],
+                                                  defaults.Params.testcases))
 
     def __init__(self, root, testcase, plots, movies):
         """

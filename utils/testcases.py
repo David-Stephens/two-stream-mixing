@@ -526,7 +526,7 @@ class Gaussian(Testcase):
         # if on last number
         if num == numfiles - 1:
             og_gauss = gaussian(self.mass_central, self.mass_shell, self.testParams.getfloat('sigma_m'), 10., limit=False)
-            ax.plot(self.mass_central, og_gauss, color='k', ls='--')
+            ax.plot(self.mass_central, og_gauss, color='k', ls='--', label='Gaussian at t=0')
 
         # Plot details
         ax.set_xlim([self.mass_central.min(), self.mass_central.max()])
